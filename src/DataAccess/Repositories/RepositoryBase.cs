@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Threading.Tasks;
 
 namespace DataAccess.Repositories
@@ -17,6 +18,11 @@ namespace DataAccess.Repositories
         {
             _context = context ?? throw new ArgumentNullException(nameof(context));
             _dbSet = _context.Set<TEntity>();
+        }
+
+        public IEnumerable<TEntity> AllInclude(params Expression<Func<TEntity, object>>[] includeProperties)
+        {
+            return GetAllIncluding(includeProperties).ToList();
         }
 
         public void Delete(TEntity entity)
@@ -38,6 +44,11 @@ namespace DataAccess.Repositories
         {
             return _dbSet.AsNoTracking().SingleOrDefault(BuildLambda.ForFindById<TEntity>(id));
         }
+
+        public IEnumerable<TEntity> FindByInclude(Expression<Func<TEntity, bool>> predicate, params Expression<Func<TEntity, object>>[] includeProperties)
+        {
+            return GetAllIncluding(includeProperties).Where(predicate).ToList();
+        }
         
         public IEnumerable<TEntity> GetAll()
         {
@@ -49,9 +60,25 @@ namespace DataAccess.Repositories
             return await _dbSet.ToListAsync();
         }
 
+        private IQueryable<TEntity> GetAllIncluding(params Expression<Func<TEntity, object>>[] includeProperties)
+        {
+            IQueryable<TEntity> query = _dbSet;
+            return includeProperties.Aggregate(query, (current, includeProperty) => current.Include(includeProperty));
+        }
+
         public void Insert(TEntity entity)
         {
             _dbSet.Add(entity);
+        }
+
+        public int SaveChanges()
+        {
+            return _context.SaveChanges();
+        }
+
+        public async Task<int> SaveChangesAsync()
+        {
+            return await _context.SaveChangesAsync();
         }
 
         public void Update(TEntity entity)
